@@ -1,0 +1,146 @@
+﻿@page "/sales-taxes"
+
+@using SalesTaxCalculator.Models
+@using SalesTaxCalculator.Services
+@inject TaxCalculator TaxCalculator
+
+<PageTitle>Sales Taxes</PageTitle>
+
+<div class="container-fluid min-vh-100">
+    <div class="row">
+        <div class="col-md-12 col-lg-8 px-4 mb-3">
+             <div class="card py-3 px-4">
+                <h1 class="text-center">SALES TAXES</h1>
+                <hr />
+                <div class="form-template">
+                     <EditForm Model="NewItem" OnValidSubmit="AddItem">
+                        <div class="form-group">
+                            <label for="name">Item</label>
+                            <InputText id="name" @bind-Value="NewItem.Name" required placeholder="e.g. book" class="form-control" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="price">Price</label>
+                            <InputNumber id="price" @bind-Value="NewItem.Price" required placeholder="100.00" class="form-control" min="0.1"  />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="quantity">Quantity</label>
+                            <div class="input-group">
+                                <button type="button" class="btn-circle"
+                                @onclick="@(() => DecrementQuantity())"
+                                disabled="@(NewItem.Quantity <= 1)">
+                                    -
+                                 </button>
+                                <span class="d-block px-3 fw-bold">@NewItem.Quantity</span>
+                                <button type="button" class="btn-circle"
+                                        @onclick="@(() => IncrementQuantity())">
+                                    +
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="imported">Is this item imported ? </label>
+                            <InputCheckbox id="imported" @bind-Value="NewItem.IsImported" />
+                        </div>
+
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <button type="submit" class="btn-primary mt-4">Add to list</button>
+                    </EditForm>
+                  </div>
+            </div>
+        </div>
+
+
+        <div class="col-md-12 col-lg-4 px-4">
+            <div class="card py-3 px-4">
+                <h4 class="text-center">Receipt Summary</h4>
+
+                @if (Items.Any())
+                {
+                    <hr />
+                    <ul>
+                        @foreach (var item in Items)
+                        {
+                            <li>@item.Quantity @(item.IsImported ? "Imported " : "")@item.Name:  R @item.TotalPrice.ToString("0.00")</li>
+                        }
+                    </ul>
+                    <p class="fw-bold">Sales Taxes:  R @TotalTax.ToString("0.00")</p>
+                    <p class="fw-bold">Total:   R @TotalPrice.ToString("0.00")</p>
+                }
+
+                <hr />
+                <div class="bg-light p-2 text-center">
+                    <h5>@formattedDate</h5>
+                    <p>@formattedDateTime</p>
+                </div>
+            </div>
+
+              @if (Items.Any())
+            {
+                <div class="card my-2 p-4">
+                    <button class="btn-primary" @onclick="ClearItems">Clear</button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+
+@code {
+    private Item NewItem = new();
+    private List<Item> Items = new();
+    private decimal TotalTax;
+    private decimal TotalPrice;
+    private string formattedDate;
+    private string formattedDateTime;
+
+    protected override void OnInitialized()
+    {
+        NewItem.Quantity = 1; // Set initial quantity to 1
+        var now = DateTime.Now;
+
+        // Format the date for display (e.g., WEDNESDAY)
+        formattedDate = now.ToString("dddd"); // "dddd" represents the full weekday name
+        formattedDateTime = now.ToString("MMMM dd, yyyy | hh:mm tt"); // Customize the format here
+    }
+
+
+    private void DecrementQuantity()
+    {
+        if (NewItem.Quantity > 1)
+        {
+            NewItem.Quantity--;
+        }
+    }
+
+    private void IncrementQuantity()
+    {
+        NewItem.Quantity++;
+    }
+
+
+    // Method to add a new item to the list
+    private void AddItem()
+    {
+        Items.Add(NewItem);
+        NewItem = new Item{ Quantity = 1}; // Reset the form
+
+        // Calculate totals using TaxCalculator service
+        var result = TaxCalculator.CalculateTotals(Items);
+        Items = result.UpdatedItems;
+        TotalTax = result.TotalTax;
+        TotalPrice = result.TotalPrice;
+    }
+
+    // Method to clear all items and totals
+    private void ClearItems()
+    {
+        Items.Clear();
+        TotalTax = 0;
+        TotalPrice = 0;
+    }
+}
